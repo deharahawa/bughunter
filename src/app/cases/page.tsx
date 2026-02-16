@@ -6,7 +6,7 @@ import { Folder, FileText, Lock, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { fetchMissions, type Mission } from "@/lib/api";
+import { fetchMissions } from "@/lib/api";
 
 // Mock Data
 const mockCases = [
