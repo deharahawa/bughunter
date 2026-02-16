@@ -1,4 +1,5 @@
 import type { Mission } from "@/types/database";
+export type { Mission };
 
 // Mock delay to simulate network request
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
