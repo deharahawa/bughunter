@@ -1,8 +1,5 @@
 import type { Mission } from "@/types/database";
-
-// Mock delay to simulate network request
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
+import { getMissionsAction, saveMissionAction as saveToServer } from "@/app/actions/mission-persistence";
 
 // Logic to parse the "LLM JSON"
 export function parseMissionReport(jsonString: string): { valid: boolean; data?: any; error?: string } {
@@ -21,29 +18,25 @@ export function parseMissionReport(jsonString: string): { valid: boolean; data?:
     }
 }
 
-// Keys
-const STORAGE_KEY = "bughunter_missions";
-
 export async function fetchMissions(): Promise<Mission[]> {
-   // Client-side only check
-   if (typeof window === "undefined") return [];
-   
-   await delay(500); // Simulate network
-   const data = localStorage.getItem(STORAGE_KEY);
-   return data ? JSON.parse(data) : [];
+   // Use Server Action to read JSON file
+   try {
+       return await getMissionsAction();
+   } catch (error) {
+       console.error("Failed to fetch missions:", error);
+       return [];
+   }
 }
 
 export async function archiveMission(missionData: Record<string, unknown>): Promise<{ success: boolean; message: string; data?: Mission }> {
-  await delay(1500); // Simulate processing time
-
   // Basic validation mock
   if (!missionData || !missionData.mission_title || !missionData.xp_gained) {
      return { success: false, message: "CRITICAL ERROR: Data Corrupted. Missing vital mission parameters." };
   }
   
-  const newMission: Mission = {
+  const newMissionPayload: Mission = {
         id: crypto.randomUUID(),
-        user_id: "mock-user-id",
+        user_id: "local-user", 
         case_data: missionData as any,
         status: (missionData.outcome as string) === "Victory" ? "SUCCESS" : "FAILURE",
         xp_earned: (missionData.xp_gained as number) || 0,
@@ -51,17 +44,24 @@ export async function archiveMission(missionData: Record<string, unknown>): Prom
         created_at: new Date().toISOString()
   };
 
-  // Save to LocalStorage
-  if (typeof window !== "undefined") {
-      const existing = localStorage.getItem(STORAGE_KEY);
-      const missions = existing ? JSON.parse(existing) : [];
-      missions.unshift(newMission); // Add to top
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(missions));
-  }
+  try {
+      const success = await saveToServer(newMissionPayload);
+      
+      if (!success) {
+          throw new Error("Failed to write to JSON file");
+      }
 
-  return { 
-    success: true, 
-    message: "ARCHIVE SUCCESSFUL. Case closed.",
-    data: newMission
-  };
+      return { 
+        success: true, 
+        message: "ARCHIVE SUCCESSFUL. Case closed.",
+        data: newMissionPayload
+      };
+
+  } catch (error) {
+       console.error("Archive Error:", error);
+       return {
+           success: false,
+           message: "ARCHIVE FAILED. System error.",
+       };
+  }
 }
